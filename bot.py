@@ -41,7 +41,7 @@ DB_PATH = os.getenv("DB_PATH", "subs.sqlite3")
 CACHE_TTL = 60.0
 CACHE: Dict[Tuple[str, Tuple[str, ...]], Tuple[float, Dict[str, float]]] = {}
 SUPPORT_CHAT_ID = int(os.getenv("SUPPORT_CHAT_ID", "0"))
-SUPPORT_COOLDOWN = 10 
+SUPPORT_COOLDOWN = 10
 
 TARGETS = {
     "USD": ["UZS", "RUB", "KZT", "KGS"],
@@ -68,7 +68,6 @@ def targets_str_multiline() -> str:
             blocks.append("\n".join(lines))
     return "\n-------------------\n".join(blocks)
 
-
 # ===== Buttons =====
 BTN_RATE_USD   = "🇺🇸 Курс USD"
 BTN_RATE_EUR   = "🇪🇺 Курс EUR"
@@ -82,8 +81,6 @@ BTN_TIME       = "⏰ Изменить время"
 BTN_UNSUB      = "❌ Отписаться"
 BTN_RESET      = "🧹 Очистить диалог"
 BTN_SUPPORT    = "🆘 Поддержка"
-
-
 
 # Кнопки общего назначения
 BTN_ENTER_OTHER = "✏️Ввести другой"
@@ -109,11 +106,9 @@ def make_submenu_kb(base: str) -> ReplyKeyboardMarkup:
     row3 = [KeyboardButton(BTN_ENTER_OTHER), KeyboardButton(BTN_BACK)]
     return ReplyKeyboardMarkup([row1, row2, row3], resize_keyboard=True)
 
-# создаём подменю
 USD_SUB_KB = make_submenu_kb("USD")
 EUR_SUB_KB = make_submenu_kb("EUR")
 RUB_SUB_KB = make_submenu_kb("RUB")
-
 
 MAIN_KB = ReplyKeyboardMarkup(
     [
@@ -123,7 +118,6 @@ MAIN_KB = ReplyKeyboardMarkup(
         [KeyboardButton(BTN_SUB), KeyboardButton(BTN_UNSUB)],
         [KeyboardButton(BTN_STATUS), KeyboardButton(BTN_RESET)],
         [KeyboardButton(BTN_TIME), KeyboardButton(BTN_SUPPORT)],
-
     ],
     resize_keyboard=True,
     input_field_placeholder="Выберите действие…",
@@ -141,7 +135,6 @@ def time_kb() -> InlineKeyboardMarkup:
     row2 = [InlineKeyboardButton(t, callback_data=f"time:{t}") for t in presets[4:]]
     other = [InlineKeyboardButton("Другое время…", callback_data="time:custom")]
     return InlineKeyboardMarkup([row1, row2, other])
-
 
 # ===== DB: миграции =====
 def _drop_wrong_unique_indexes(conn: sqlite3.Connection) -> None:
@@ -269,7 +262,7 @@ def db_delete_pair(chat_id: int, base: Optional[str]=None, quote: Optional[str]=
         else:
             conn.execute("DELETE FROM pair_subscriptions WHERE chat_id=?", (chat_id,))
         conn.commit()
-        
+
 def db_has_default(chat_id: int) -> bool:
     with closing(sqlite3.connect(DB_PATH)) as conn:
         row = conn.execute(
@@ -341,7 +334,6 @@ def remove_flags(s: str) -> str:
 def extract_pair_from_button(text: str):
     clean = re.sub(r'\s+', ' ', remove_flags(text)).strip()
     return parse_pair(clean)
-
 
 async def fetch_rates(base: str, symbols: List[str]) -> Dict[str, float]:
     base = base.upper()
@@ -420,7 +412,7 @@ def parse_hhmm(arg: Optional[str]) -> Tuple[int, int]:
     return h, mm
 
 def fmt_value(base: str, val: float) -> str:
-    return f"{val:.2f}" if base == "RUB" else f"{val:.2f}"
+    return f"{val:.2f}"
 
 def format_block(base: str, rates: Dict[str, float]) -> str:
     lines = [f"{flag(base)} <b>{base}</b>:"]
@@ -432,12 +424,10 @@ def format_block(base: str, rates: Dict[str, float]) -> str:
             lines.append(f"{flag(base)} {base} → {flag(sym)} <b>{sym}</b>: <code>{fmt_value(base, v)}</code>")
     return "\n".join(lines)
 
-
 # ===== Commands =====
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Привет! Выбирай кнопки ниже. Для USD/EUR/RUB есть подменю.", parse_mode=ParseMode.HTML)
     msg = await update.message.reply_text("Главное меню 👇", reply_markup=MAIN_KB)
-    # запомним id сообщения с клавиатурой, чтобы не удалить его при очистке
     context.chat_data["kb_msg_id"] = msg.message_id
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -471,7 +461,6 @@ async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         chat_id = update.effective_chat.id
         db_upsert(chat_id, hour, minute)
         schedule_job_for(context.application, chat_id, hour, minute)
-
         await update.message.reply_text(
             "✅ Вы подписаны на автообновление по умолчанию:\n"
             + targets_str_multiline()
@@ -483,7 +472,6 @@ async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def cmd_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Выберите время рассылки по будням:", reply_markup=time_kb())
-
 
 async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
@@ -555,17 +543,15 @@ async def cmd_import(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         if "version" not in payload:
             raise ValueError("Неверный формат")
 
-        # дефолтная рассылка
         if payload.get("default"):
             h = int(payload["default"]["hour"]); m = int(payload["default"]["minute"])
             db_upsert(chat_id, h, m); schedule_job_for(context.application, chat_id, h, m)
 
-        # пары
-        db_delete_pair(chat_id)  # очищаем и перезаписываем
+        db_delete_pair(chat_id)
         for item in payload.get("pairs", []):
             b = normalize_code(item["base"]); q = normalize_code(item["quote"])
             h = int(item["hour"]); m = int(item["minute"])
-            if not b or not q or b == q: 
+            if not b or not q or b == q:
                 continue
             db_upsert_pair(chat_id, b, q, h, m)
             schedule_pair_job(context.application, chat_id, b, q, h, m)
@@ -575,14 +561,12 @@ async def cmd_import(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text(f"⚠️ Не удалось импортировать: {e}")
 
 async def cmd_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # /now USD-RUB  (можно с пробелом или с флажками)
     if not context.args:
         await update.message.reply_text("Формат: /now USD-RUB")
         return
 
     query = " ".join(context.args)
     try:
-        # remove_flags должен уже быть в файле; если нет — скажи, дам.
         pair = parse_pair(remove_flags(query))
         if not pair:
             await update.message.reply_text("Неверная пара. Пример: /now EUR-USD")
@@ -617,12 +601,10 @@ async def on_support_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not update.message.reply_to_message:
         return
 
-    # 1) найти пользователя по карте
     support_map = context.application.bot_data.get("support_map", {})
     replied_id = update.message.reply_to_message.message_id
     target_chat_id = support_map.get(replied_id)
 
-    # 2) fallback — вытащить chat_id из карточки
     if not target_chat_id:
         src = update.message.reply_to_message.text_html or update.message.reply_to_message.text or ""
         m = re.search(r"chat_id:\s*<code>(-?\d+)</code>", src)
@@ -632,7 +614,6 @@ async def on_support_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text("Не удалось определить получателя. Ответьте именно на карточку обращения.")
         return
 
-    # --- /close: отметить закрытым
     if update.message.text and update.message.text.strip().lower().startswith("/close"):
         try:
             await context.bot.send_message(target_chat_id, "🔒 Диалог с поддержкой закрыт. Если появятся вопросы — напишите ещё раз.")
@@ -641,7 +622,6 @@ async def on_support_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await update.message.reply_text(f"⚠️ Не удалось закрыть: {e}")
         return
 
-    # --- /ban и /unban прямо в reply
     if update.message.text:
         txt = update.message.text.strip().lower()
         if txt.startswith("/ban"):
@@ -653,19 +633,16 @@ async def on_support_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await update.message.reply_text(f"✅ Пользователь {target_chat_id} разбанен.")
             return
 
-    # --- пересылка ответа (мультимедиа поддерживается)
     try:
         if update.message.photo or update.message.document or update.message.video or \
            update.message.audio or update.message.voice or update.message.video_note or \
            update.message.sticker:
-            # скопируем сообщение как есть, включая подпись
             await context.bot.copy_message(
                 chat_id=target_chat_id,
                 from_chat_id=SUPPORT_CHAT_ID,
                 message_id=update.message.message_id
             )
         else:
-            # просто текст
             reply_text = update.message.text or update.message.caption or ""
             if not reply_text:
                 await update.message.reply_text("Пустой ответ. Напишите текстом или пришлите медиа.")
@@ -679,11 +656,9 @@ async def on_support_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     except Exception as e:
         await update.message.reply_text(f"⚠️ Не удалось отправить: {e}")
 
-
 async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
-
     msg = f"chat_id: <code>{chat.id}</code>\n"
     if user:
         msg += f"user_id: <code>{user.id}</code>\n"
@@ -691,7 +666,6 @@ async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg += f"username: @{user.username}\n"
         if user.full_name:
             msg += f"name: {user.full_name}"
-
     await update.message.reply_text(msg, parse_mode="HTML")
 
 async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -721,12 +695,9 @@ async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===== Reset / очистка =====
 async def reset_dialog(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
-
-    # 1) Подписки не трогаем. Чистим локальные состояния диалога
     for k in ("submenu", "wait_base", "wait_country", "wait_pair", "wait_pair_sub"):
         context.user_data.pop(k, None)
 
-    # 2) Сразу восстановим меню — клавиатура появится мгновенно
     menu_msg = await context.bot.send_message(
         chat_id,
         "Главное меню 👇",
@@ -734,18 +705,17 @@ async def reset_dialog(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
     context.chat_data["kb_msg_id"] = menu_msg.message_id
 
-    # 3) Запустим фоновую очистку сообщений бота (не блокируем UI)
     async def _cleanup():
         kb_keep_id = context.chat_data.get("kb_msg_id")
         try:
-            last_id = menu_msg.message_id - 1  # чистим до меню
-            N = 150  # глубина попытки удаления (подстрой, если нужно)
+            last_id = menu_msg.message_id - 1
+            N = 150
             for mid in range(last_id, max(last_id - N, 1), -1):
                 if kb_keep_id and mid == kb_keep_id:
                     continue
                 try:
                     await context.bot.delete_message(chat_id, mid)
-                    await asyncio.sleep(0.01)  # бережно к rate-limit
+                    await asyncio.sleep(0.01)
                 except Exception:
                     pass
         except Exception as e:
@@ -753,17 +723,12 @@ async def reset_dialog(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     asyncio.create_task(_cleanup())
 
-
-    # 4) Всегда восстанавливаем меню (для мобильных клиентов)
     msg = await context.bot.send_message(
         chat_id,
         "👇Выберите новое действия👇",
         reply_markup=MAIN_KB
     )
-    # запомним id, чтобы при следующей очистке его не удалить
     context.chat_data["kb_msg_id"] = msg.message_id
-
-
 
 # /subpair USD-RUB [HH:MM], /unsubpair USD-RUB
 async def cmd_subpair(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -828,10 +793,9 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await context.bot.send_message(chat_id, f"✅ Подписка оформлена. Будни в {hour:02d}:{minute:02d} ({TZ.key}).")
         except Exception as e:
             await context.bot.send_message(chat_id, f"⚠️ Не удалось оформить подписку: {e}")
-        
+
     elif data.startswith("time:"):
         _, payload = data.split(":", 1)
-        chat_id = query.message.chat.id
 
         if payload == "custom":
             context.user_data["wait_time"] = True
@@ -840,25 +804,20 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         hour, minute = map(int, payload.split(":"))
 
-        # 1) Если есть дефолтная подписка — обновим её время
         if db_has_default(chat_id):
             db_upsert(chat_id, hour, minute)
             schedule_job_for(context.application, chat_id, hour, minute)
             await context.bot.send_message(chat_id, f"⏰ Время подписки обновлено: {hour:02d}:{minute:02d} ({TZ.key}).")
             return
 
-        # 2) Иначе, если есть подписки на пары — обновим время у всех пар
         pairs = db_get_pairs(chat_id)
         if pairs:
-            # обновим в БД
             updated = db_update_all_pairs_time(chat_id, hour, minute)
-            # пересоздадим расписание для каждой пары
             for b, q in updated:
                 schedule_pair_job(context.application, chat_id, b, q, hour, minute)
             await context.bot.send_message(chat_id, f"⏰ Время подписок на пары обновлено: {hour:02d}:{minute:02d} ({TZ.key}).")
             return
 
-        # 3) Вообще нет подписок — ничего не создаём
         await context.bot.send_message(chat_id, "ℹ️ У вас пока нет подписок. Оформите подписку и затем задайте время.")
         return
 
@@ -868,14 +827,13 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (update.message.text or "").strip()
 
-    # Режим: пользователь пишет в поддержку (только текст)
+    # режим поддержки (текст)
     if context.user_data.pop("wait_support", None):
         text = (update.message.text or "").strip()
         if text.lower() in ("отмена", "cancel", "назад"):
             await update.message.reply_text("Отменено.", reply_markup=MAIN_KB)
             return
 
-        # кулдаун
         now = time.time()
         last = context.user_data.get("last_support_at", 0)
         if now - last < SUPPORT_COOLDOWN:
@@ -907,55 +865,7 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await update.message.reply_text(f"⚠️ Не удалось отправить: {e}", reply_markup=MAIN_KB)
         return
 
-    
-    async def on_support_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        # игнорируем сам чат поддержки (там отвечают админы)
-        if update.effective_chat.id == SUPPORT_CHAT_ID:
-            return
-
-        # обрабатываем ТОЛЬКО когда пользователь нажал "Поддержка"
-        if not context.user_data.get("wait_support"):
-            return
-
-        # заберём подпись (если есть) и подготовим карточку
-        user = update.effective_user
-        chat = update.effective_chat
-        caption = update.message.caption or ""
-        card_text = (
-            "📩 <b>Сообщение в поддержку</b>\n"
-            f"from: {user.full_name} (id <code>{user.id}</code>)\n"
-            f"username: @{user.username if user.username else '—'}\n"
-            f"chat_id: <code>{chat.id}</code>\n\n"
-            f"{caption or '🖼 Медиа без текста'}"
-        )
-
-        try:
-            # 1) карточка
-            support_msg = await context.bot.send_message(
-                SUPPORT_CHAT_ID, card_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True
-            )
-            # 2) связь message_id -> chat_id
-            context.application.bot_data.setdefault("support_map", {})[support_msg.message_id] = chat.id
-            # 3) прикрепляем медиа reply к карточке (копируем «как есть»)
-            await context.bot.copy_message(
-                chat_id=SUPPORT_CHAT_ID,
-                from_chat_id=chat.id,
-                message_id=update.message.message_id,
-                reply_to_message_id=support_msg.message_id
-            )
-            # 4) подтверждение пользователю
-            await update.message.reply_text(
-                "Спасибо! Сообщение (медиа) отправлено в поддержку. Мы ответим здесь.",
-                reply_markup=MAIN_KB
-            )
-        except Exception as e:
-            await update.message.reply_text(f"⚠️ Не удалось отправить: {e}", reply_markup=MAIN_KB)
-        finally:
-            # выходим из режима поддержки
-            context.user_data.pop("wait_support", None)
-
-
-    # Ручной ввод времени после «Другое время…»
+    # ручной ввод времени
     if context.user_data.pop("wait_time", None):
         try:
             hour, minute = parse_hhmm(text)
@@ -980,7 +890,7 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await update.message.reply_text(f"⚠️ {e}\nПример: 09:30", reply_markup=MAIN_KB)
         return
 
-    # Ожидание ISO-кода после "Ввести другой"
+    # ожидание ISO-кода после "Ввести другой"
     wait_base = context.user_data.get("wait_base")
     if wait_base:
         code_in = normalize_code(text)
@@ -1001,7 +911,7 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             context.user_data.pop("wait_base", None)
         return
 
-    # Справочник по стране
+    # справочник по стране
     if context.user_data.get("wait_country") is True:
         context.user_data.pop("wait_country", None)
         codes = await fetch_currency_by_country(text)
@@ -1011,7 +921,7 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await update.message.reply_text("Коды валют: " + ", ".join(codes), reply_markup=MAIN_KB)
         return
 
-    # Разовая пара
+    # разовая пара
     if context.user_data.get("wait_pair") is True:
         context.user_data.pop("wait_pair", None)
         p = parse_pair(text)
@@ -1030,7 +940,7 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await update.message.reply_text(f"⚠️ {e}", reply_markup=MAIN_KB)
         return
 
-    # Подписка на пару
+    # подписка на пару (ввод)
     if context.user_data.get("wait_pair_sub") is True:
         context.user_data.pop("wait_pair_sub", None)
         p = parse_pair(text)
@@ -1047,7 +957,7 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(f"✅ Вы подписаны на обновления курса {base}-{quote}. Будни в {hour:02d}:{minute:02d} ({TZ.key}).", reply_markup=MAIN_KB)
         return
 
-    # Подменю
+    # подменю
     submenu = context.user_data.get("submenu")
 
     if submenu == "USD":
@@ -1074,7 +984,6 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         await update.message.reply_text("Выберите пару из списка или нажмите «Ввести другой».", reply_markup=USD_SUB_KB); return
 
-
     if submenu == "EUR":
         clean = re.sub(r'\s+', ' ', remove_flags(text)).strip()
         if clean == BTN_BACK:
@@ -1098,7 +1007,6 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             return
 
         await update.message.reply_text("Выберите пару из списка или нажмите «Ввести другой».", reply_markup=EUR_SUB_KB); return
-
 
     if submenu == "RUB":
         clean = re.sub(r'\s+', ' ', remove_flags(text)).strip()
@@ -1124,7 +1032,6 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         await update.message.reply_text("Выберите пару из списка или нажмите «Ввести другой».", reply_markup=RUB_SUB_KB); return
 
-
     # Главные кнопки
     if text == BTN_RATE_USD: return await cmd_usd(update, context)
     if text == BTN_RATE_EUR: return await cmd_eur(update, context)
@@ -1149,7 +1056,7 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             + f"\nБудни в {hour:02d}:{minute:02d} (Europe/Moscow)",
             parse_mode=ParseMode.HTML
         )
-    if text == BTN_TIME: return await cmd_time(update, context)
+    if text == BTN_TIME:   return await cmd_time(update, context)
     if text == BTN_STATUS: return await cmd_status(update, context)
     if text == BTN_UNSUB:  return await cmd_unsubscribe(update, context)
     if text == BTN_RESET:  return await reset_dialog(update, context)
@@ -1158,16 +1065,12 @@ async def on_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return await update.message.reply_text("Не понял. Нажмите кнопку на клавиатуре или /menu.", reply_markup=MAIN_KB)
 
 async def on_support_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Приём медиа в режиме поддержки (Lite: только фото/видео/док)."""
-    # не трогаем чат поддержки (там отвечают админы)
+    """Приём медиа в режиме поддержки (фото/видео/док)."""
     if update.effective_chat.id == SUPPORT_CHAT_ID:
         return
-
-    # только если нажата кнопка "Поддержка" (ждём ровно одно следующее сообщение)
     if not context.user_data.get("wait_support"):
         return
 
-    # простейший кулдаун
     now = time.time()
     last = context.user_data.get("last_support_at", 0)
     if now - last < SUPPORT_COOLDOWN:
@@ -1177,7 +1080,6 @@ async def on_support_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user = update.effective_user
     chat = update.effective_chat
 
-    # принимаем только фото/видео/документы
     if not (update.message.photo or update.message.video or update.message.document):
         await update.message.reply_text("Можно отправить только фото, видео или документ.", reply_markup=MAIN_KB)
         context.user_data.pop("wait_support", None)
@@ -1193,26 +1095,21 @@ async def on_support_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
 
     try:
-        # 1) карточка
         support_msg = await context.bot.send_message(
             SUPPORT_CHAT_ID, card_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True
         )
-        # 2) связь message_id -> chat_id (для ответа)
         context.application.bot_data.setdefault("support_map", {})[support_msg.message_id] = chat.id
-        # 3) прикрепляем медиа одним сообщением (копируем «как есть»)
         await context.bot.copy_message(
             chat_id=SUPPORT_CHAT_ID,
             from_chat_id=chat.id,
             message_id=update.message.message_id,
             reply_to_message_id=support_msg.message_id,
         )
-        # 4) подтверждение
         await update.message.reply_text("Спасибо! Сообщение отправлено в поддержку. Мы ответим здесь.", reply_markup=MAIN_KB)
         context.user_data["last_support_at"] = now
     except Exception as e:
         await update.message.reply_text(f"⚠️ Не удалось отправить: {e}", reply_markup=MAIN_KB)
     finally:
-        # выходим из режима — одно медиа на обращение
         context.user_data.pop("wait_support", None)
 
 # ===== Scheduler & startup =====
@@ -1230,7 +1127,7 @@ async def send_digest_to_chat(app: Application, chat_id: int) -> None:
     try:
         now_local = datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
         blocks = []
-        for base in ["USD", "EUR", "RUB"]:  # порядок показа
+        for base in ["USD", "EUR", "RUB"]:
             if base in TARGETS:
                 rates = await fetch_rates(base, TARGETS[base])
                 blocks.append(format_block(base, rates))
@@ -1239,12 +1136,12 @@ async def send_digest_to_chat(app: Application, chat_id: int) -> None:
     except Exception as e:
         print(f"[digest] {chat_id=} error={e}")
 
-
 async def send_pair_to_chat(app: Application, chat_id: int, base: str, quote: str) -> None:
     try:
         rates = await fetch_rates(base, [quote])
         val = rates.get(quote)
-        text = (f"Нет данных для пары {flag(base)}{base} - {flag(quote)}{quote}"if val is None else f"{flag(base)}{base} → {flag(quote)}{quote} {fmt_value(base, val)}")
+        text = (f"Нет данных для пары {flag(base)}{base} - {flag(quote)}{quote}"
+                if val is None else f"{flag(base)}{base} → {flag(quote)}{quote} {fmt_value(base, val)}")
         await app.bot.send_message(chat_id=chat_id, text=text)
     except Exception as e:
         print(f"[pair] {chat_id=} {base=}-{quote=} error={e}")
@@ -1301,14 +1198,24 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         print(f"[ERROR-HANDLER] {e!r}")
 
-# ===== Main =====
+# ===== Main (WEBHOOK) =====
 async def main() -> None:
     token = os.getenv("TELEGRAM_TOKEN") or os.getenv("BOT_TOKEN")
     if not token:
-        raise RuntimeError("TELEGRAM_TOKEN or BOT_TOKEN is missing. Set it in .env")
+        raise RuntimeError("TELEGRAM_TOKEN or BOT_TOKEN is missing. Set it in env")
+
+    # Render подставляет публичный URL в переменную RENDER_EXTERNAL_URL
+    public_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("PUBLIC_URL")
+    if not public_url:
+        raise RuntimeError("PUBLIC URL is missing. Set RENDER_EXTERNAL_URL (Render) или PUBLIC_URL")
+
+    port = int(os.getenv("PORT", "10000"))
+    webhook_path = token  # секретный путь
+    webhook_url = f"{public_url.rstrip('/')}/{webhook_path}"
 
     app = Application.builder().token(token).build()
 
+    # handlers
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("menu", cmd_menu))
@@ -1331,36 +1238,30 @@ async def main() -> None:
     app.add_handler(CommandHandler("whoami", cmd_whoami))
     app.add_handler(CommandHandler("ban", cmd_ban))
     app.add_handler(CommandHandler("unban", cmd_unban))
-
-
-
     if SUPPORT_CHAT_ID:
-        app.add_handler(
-            MessageHandler(filters.Chat(SUPPORT_CHAT_ID) & filters.REPLY, on_support_reply),
-            group=-1
-        )
-    
-
-    app.add_handler(
-        MessageHandler(
-            (~filters.Chat(SUPPORT_CHAT_ID)) & filters.ATTACHMENT,   # ловим все вложения
-            on_support_media
-        )
-    )
-
-
+        app.add_handler(MessageHandler(filters.Chat(SUPPORT_CHAT_ID) & filters.REPLY, on_support_reply), group=-1)
+    app.add_handler(MessageHandler((~filters.Chat(SUPPORT_CHAT_ID)) & filters.ATTACHMENT, on_support_media))
     app.add_error_handler(on_error)
 
+    # старт/вебхук/сервер
     await on_startup(app)
-    await app.initialize(); await app.start()
-    print("Bot started.")
+    await app.initialize()
+    await app.start()
+    await app.bot.set_webhook(url=webhook_url, drop_pending_updates=True)
     db_init_banned()
+    print(f"Bot started (webhook): {webhook_url}")
+
     try:
-        await app.updater.start_polling(drop_pending_updates=True)
-        await asyncio.Event().wait()
+        await app.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            url_path=webhook_path,
+            webhook_url=webhook_url,
+        )
     finally:
-        await app.updater.stop(); await app.stop()
-        await on_shutdown(app); await app.shutdown()
+        await on_shutdown(app)
+        await app.stop()
+        await app.shutdown()
 
 if __name__ == "__main__":
     try:
